@@ -30,13 +30,9 @@ async function getToken(initData) {
 
     return response.data;
   } catch (error) {
-    if (error.response) {
-      console.error('Error response data:', error.response.data);
-      console.error('Error response status:', error.response.status);
-      console.error('Error response headers:', error.response.headers);
-    } else {
-      console.error('Error message:', error.message);
-    }
+    console.error('Error response data:', error.response ? error.response.data : 'N/A');
+    console.error('Error response status:', error.response ? error.response.status : 'N/A');
+    console.error('Error response headers:', error.response ? error.response.headers : 'N/A');
     throw new Error('Error fetching token: ' + (error.response ? error.response.data : error.message));
   }
 }
@@ -45,7 +41,7 @@ async function getUserInfo(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/user', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`, 
         'Accept': 'application/json, text/plain, */*',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -61,7 +57,7 @@ async function getStreakInfo(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/streak', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`, 
         'Accept': 'application/json, text/plain, */*',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -77,7 +73,7 @@ async function getTasksInfo(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/tasks/available', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`,
         'Accept': 'application/json, text/plain, */*',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -93,7 +89,7 @@ async function startTask(token, taskId) {
   try {
     const response = await axios.post(`https://api-tg-app.midas.app/api/tasks/start/${taskId}`, null, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`, 
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cache-Control': 'no-cache',
@@ -115,7 +111,7 @@ async function claimTask(token, taskId) {
   try {
     const response = await axios.post(`https://api-tg-app.midas.app/api/tasks/claim/${taskId}`, null, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`, 
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cache-Control': 'no-cache',
@@ -142,8 +138,7 @@ async function playGameUntilTicketsZero(token) {
       try {
         await axios.post('https://api-tg-app.midas.app/api/game/play', null, {
           headers: {
-            'Authorization': `Bearer
-            ${token}`,
+            'Authorization': `Bearer ${token.trim()}`,
             'Accept': 'application/json, text/plain, */*',
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cache-Control': 'no-cache',
@@ -152,7 +147,7 @@ async function playGameUntilTicketsZero(token) {
         });
       } catch (error) {
         console.error('Error playing game: ' + error.message);
-        break; 
+        break;
       }
 
       await delay(5000); 
@@ -166,7 +161,7 @@ async function checkAndClaimReferral(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/referral/referred-users', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.trim()}`, 
         'Accept': 'application/json, text/plain, */*',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -181,7 +176,7 @@ async function checkAndClaimReferral(token) {
       try {
         await axios.post('https://api-tg-app.midas.app/api/referral/claim', null, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${token.trim()}`, 
             'Accept': 'application/json, text/plain, */*',
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cache-Control': 'no-cache',
@@ -239,7 +234,7 @@ async function processAccount(initData) {
     }
 
     console.log('\n[MENUNGGU 15 DETIK UNTUK CLAIM TASKS]');
-    await delay(15000); 
+    await delay(15000);
     for (const task of tasksInfo) {
       if (!task.completed && task.id !== 'connect_wallet') {
         console.log(`[>] Task ID: ${task.id}`);
