@@ -1,17 +1,45 @@
 const fs = require('fs');
 const axios = require('axios');
 
-function readTokensFromFile(filePath) {
+async function readInitDataFromFile(filePath) {
   return new Promise((resolve, reject) => {
     fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) {
         reject(err);
       } else {
-        const tokens = data.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        resolve(tokens);
+
+        const initDataArray = data.trim().split('\n').map(line => line.trim());
+        resolve(initDataArray);
       }
     });
   });
+}
+
+async function getToken(initData) {
+  try {
+    const response = await axios.post('https://api-tg-app.midas.app/api/auth/register', {
+      initData: initData,
+      source: ' '
+    }, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/json',
+        'Origin': 'https://midas-tg-app.netlify.app',
+        'X-Requested-With': 'org.telegram.messenger'
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+      console.error('Error response headers:', error.response.headers);
+    } else {
+      console.error('Error message:', error.message);
+    }
+    throw new Error('Error fetching token: ' + (error.response ? error.response.data : error.message));
+  }
 }
 
 async function getUserInfo(token) {
@@ -28,10 +56,6 @@ async function getUserInfo(token) {
   } catch (error) {
     throw new Error('Error fetching user info: ' + error.message);
   }
-}
-
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function getStreakInfo(token) {
@@ -107,6 +131,37 @@ async function claimTask(token, taskId) {
   }
 }
 
+async function playGameUntilTicketsZero(token) {
+  try {
+    while (true) {
+      const userInfo = await getUserInfo(token);
+      if (userInfo.tickets <= 0) {
+        break;
+      }
+      
+      console.log(`Playing game to use ticket. Current tickets: ${userInfo.tickets}`);
+      try {
+        await axios.post('https://api-tg-app.midas.app/api/game/play', null, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+      } catch (error) {
+        console.error('Error playing game: ' + error.message);
+        break; 
+      }
+
+      await delay(5000); 
+    }
+  } catch (error) {
+    throw new Error('Error playing game: ' + error.message);
+  }
+}
+
 async function checkAndClaimReferral(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/referral/referred-users', {
@@ -143,9 +198,21 @@ async function checkAndClaimReferral(token) {
   }
 }
 
-async function processAccount(token) {
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function processAccount(initData) {
   try {
+    const token = await getToken(initData);
+    console.log(`Token acquired for initData: ${initData}`);
+    
     const userInfo = await getUserInfo(token);
+
+    if (userInfo.tickets > 0) {
+      console.log(`Tickets available: ${userInfo.tickets}. Starting to play game.`);
+      await playGameUntilTicketsZero(token);
+    }
 
     const streakInfo = await getStreakInfo(token);
 
@@ -153,7 +220,7 @@ async function processAccount(token) {
 
     const tasksInfo = await getTasksInfo(token);
     
-    const userOutput = `\nUSERNAME: ${userInfo.username} | POINTS: ${userInfo.points} | TICKETS: ${userInfo.tickets}\nStreak Start Date: ${streakInfo.streakStartDate}\nStreak Days Count: ${streakInfo.streakDaysCount}`;
+    const userOutput = `\nUSERNAME: ${userInfo.username || 'null'} | POINTS: ${userInfo.points} | TICKETS: ${userInfo.tickets}\nStreak Start Date: ${streakInfo.streakStartDate}\nStreak Days Count: ${streakInfo.streakDaysCount}`;
     console.log(userOutput);
 
     const failedTasks = [];
@@ -163,7 +230,7 @@ async function processAccount(token) {
       console.log(`[>] ${task.name} | ${task.mechanic} | ${completionStatus}`);
 
       if (!task.completed && task.id !== 'connect_wallet') {
-        console.log(`START TASK: ${task.id}`);
+        console.log(`Starting task: ${task.id}`);
         const result = await startTask(token, task.id);
         if (!result.success) {
           failedTasks.push(result.taskId);
@@ -173,34 +240,39 @@ async function processAccount(token) {
 
     if (failedTasks.length > 0) {
       console.log('\nTASKS YANG GAGAL:');
-      failedTasks.forEach(taskId => console.log(`[>] Task ID: ${taskId}`));
+      failedTasks.forEach(taskId => console.log(`Task ID: ${taskId}`));
     }
-
+    
     console.log('\n[MENUNGGU 15 DETIK UNTUK CLAIM TASKS]');
     await delay(15000);
-    console.log('\nMELAKUKAN CLAIM TASKS:');
     for (const task of tasksInfo) {
       if (!task.completed && task.id !== 'connect_wallet') {
         console.log(`[>] Task ID: ${task.id}`);
         await claimTask(token, task.id);
       }
     }
+
   } catch (error) {
-    console.error(error.message);
+    console.error('Error processing account:', error.message);
   }
 }
 
 async function main() {
   try {
-    const tokens = await readTokensFromFile('ey.txt');
+    const initDataArray = await readInitDataFromFile('ey.txt');
     
-    for (const token of tokens) {
+    for (const initData of initDataArray) {
       console.log(`========================================`);
-      console.log(`Processing account with token:\n${token}`);
-      await processAccount(token);
+      console.log(`Processing initData: ${initData}`);
+
+      try {
+        await processAccount(initData);
+      } catch (error) {
+        console.error(`Failed to process initData: ${initData}. Error: ${error.message}`);
+      }
     }
   } catch (error) {
-    console.error('Error processing accounts: ' + error.message);
+    console.error('Error reading initData from file:', error.message);
   }
 }
 
