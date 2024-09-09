@@ -7,7 +7,6 @@ async function readInitDataFromFile(filePath) {
       if (err) {
         reject(err);
       } else {
-
         const initDataArray = data.trim().split('\n').map(line => line.trim());
         resolve(initDataArray);
       }
@@ -143,7 +142,8 @@ async function playGameUntilTicketsZero(token) {
       try {
         await axios.post('https://api-tg-app.midas.app/api/game/play', null, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer
+            ${token}`,
             'Accept': 'application/json, text/plain, */*',
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cache-Control': 'no-cache',
@@ -179,7 +179,7 @@ async function checkAndClaimReferral(token) {
       console.log('\nReferral:\n(Ada Referral)');
 
       try {
-        const claimResponse = await axios.post('https://api-tg-app.midas.app/api/referral/claim', null, {
+        await axios.post('https://api-tg-app.midas.app/api/referral/claim', null, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json, text/plain, */*',
@@ -198,15 +198,11 @@ async function checkAndClaimReferral(token) {
   }
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 async function processAccount(initData) {
   try {
     const token = await getToken(initData);
-    console.log(`Token acquired for initData: ${initData}`);
-    
+    console.log('Token acquired for initData:', initData);
+
     const userInfo = await getUserInfo(token);
 
     if (userInfo.tickets > 0) {
@@ -215,11 +211,10 @@ async function processAccount(initData) {
     }
 
     const streakInfo = await getStreakInfo(token);
-
     await checkAndClaimReferral(token);
 
     const tasksInfo = await getTasksInfo(token);
-    
+
     const userOutput = `\nUSERNAME: ${userInfo.username || 'null'} | POINTS: ${userInfo.points} | TICKETS: ${userInfo.tickets}\nStreak Start Date: ${streakInfo.streakStartDate}\nStreak Days Count: ${streakInfo.streakDaysCount}`;
     console.log(userOutput);
 
@@ -242,16 +237,15 @@ async function processAccount(initData) {
       console.log('\nTASKS YANG GAGAL:');
       failedTasks.forEach(taskId => console.log(`Task ID: ${taskId}`));
     }
-    
+
     console.log('\n[MENUNGGU 15 DETIK UNTUK CLAIM TASKS]');
-    await delay(15000);
+    await delay(15000); 
     for (const task of tasksInfo) {
       if (!task.completed && task.id !== 'connect_wallet') {
         console.log(`[>] Task ID: ${task.id}`);
         await claimTask(token, task.id);
       }
     }
-
   } catch (error) {
     console.error('Error processing account:', error.message);
   }
@@ -260,20 +254,29 @@ async function processAccount(initData) {
 async function main() {
   try {
     const initDataArray = await readInitDataFromFile('ey.txt');
-    
-    for (const initData of initDataArray) {
-      console.log(`========================================`);
-      console.log(`Processing initData: ${initData}`);
 
-      try {
-        await processAccount(initData);
-      } catch (error) {
-        console.error(`Failed to process initData: ${initData}. Error: ${error.message}`);
+    while (true) {
+      for (const initData of initDataArray) {
+        console.log(`========================================`);
+        console.log(`Processing initData: ${initData}`);
+
+        try {
+          await processAccount(initData);
+        } catch (error) {
+          console.error(`Failed to process initData: ${initData}. Error: ${error.message}`);
+        }
       }
+
+      console.log('Menunggu selama 24 jam sebelum memulai ulang...');
+      await delay(24 * 60 * 60 * 1000); 
     }
   } catch (error) {
     console.error('Error reading initData from file:', error.message);
   }
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 main();
