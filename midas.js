@@ -69,6 +69,22 @@ async function getStreakInfo(token) {
   }
 }
 
+async function claimStreakInfo(token) {
+  try {
+    const response = await axios.post('https://api-tg-app.midas.app/api/streak', null, {
+      headers: {
+        'Authorization': `Bearer ${token.trim()}`,
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': 'https://midas-tg-app.netlify.app'
+      }
+    });
+    console.log('\nClaim Streak: Done');
+  } catch (error) {
+    console.error('\nClaim Streak Reward: Telah diambil!');
+  }
+}
+
 async function getTasksInfo(token) {
   try {
     const response = await axios.get('https://api-tg-app.midas.app/api/tasks/available', {
@@ -99,10 +115,10 @@ async function startTask(token, taskId) {
     return { success: true, taskId };
   } catch (error) {
     if (error.response && error.response.status === 400) {
-      console.error(`Error starting task: ${taskId}. Request failed with status code 400`);
+      console.error(`[X] Error starting task: ${taskId}. Manual check app Midas mu!`);
       return { success: false, taskId };
     } else {
-      throw new Error('Error starting task: ' + error.message);
+      throw new Error('[X] Error starting task: ' + error.message);
     }
   }
 }
@@ -121,7 +137,7 @@ async function claimTask(token, taskId) {
     console.log(`[>] Task ID: ${taskId}`);
     return { success: true, taskId };
   } catch (error) {
-    console.error(`Error claiming task: ${taskId}. Request failed with status code ${error.response ? error.response.status : 'unknown'}`);
+    console.error(`[-] Error claiming task: ${taskId}. Manual check app Midas mu!`);
     return { success: false, taskId };
   }
 }
@@ -185,7 +201,7 @@ async function checkAndClaimReferral(token) {
         });
         console.log('CLAIM REFERRAL SUCCESS');
       } catch (claimError) {
-        console.error('Error claiming referral: ' + claimError.message);
+        console.error('Error claiming referral: Referral Reward sudah diambil!');
       }
     }
   } catch (error) {
@@ -199,13 +215,15 @@ async function processAccount(initData) {
     console.log('Token acquired for initData:', initData);
 
     const userInfo = await getUserInfo(token);
+    await claimStreakInfo(token); 
 
-    if (userInfo.tickets > 0) {
-      console.log(`Tickets available: ${userInfo.tickets}. Starting to play game.`);
+    if (userInfo.tickets >= 0) {
+      console.log(`\nTickets available: ${userInfo.tickets}.`);
       await playGameUntilTicketsZero(token);
     }
 
     const streakInfo = await getStreakInfo(token);
+    
     await checkAndClaimReferral(token);
 
     const tasksInfo = await getTasksInfo(token);
@@ -220,7 +238,7 @@ async function processAccount(initData) {
       console.log(`[>] ${task.name} | ${task.mechanic} | ${completionStatus}`);
 
       if (!task.completed && task.id !== 'connect_wallet') {
-        console.log(`Starting task: ${task.id}`);
+        console.log(`[V] Starting task: ${task.id}`);
         const result = await startTask(token, task.id);
         if (!result.success) {
           failedTasks.push(result.taskId);
@@ -230,7 +248,7 @@ async function processAccount(initData) {
 
     if (failedTasks.length > 0) {
       console.log('\nTASKS YANG GAGAL:');
-      failedTasks.forEach(taskId => console.log(`Task ID: ${taskId}`));
+      failedTasks.forEach(taskId => console.log(`[-] Task ID: ${taskId}`));
     }
 
     console.log('\n[MENUNGGU 15 DETIK UNTUK CLAIM TASKS]');
@@ -261,9 +279,9 @@ async function main() {
           console.error(`Failed to process initData: ${initData}. Error: ${error.message}`);
         }
       }
-
-      console.log('Menunggu selama 24 jam sebelum memulai ulang...');
-      await delay(24 * 60 * 60 * 1000); 
+      console.log(`\n========================================`);
+      console.log('Menunggu selama 12 jam sebelum memulai ulang...');
+      await delay(12 * 60 * 60 * 1000); 
     }
   } catch (error) {
     console.error('Error reading initData from file:', error.message);
